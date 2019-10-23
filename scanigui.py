@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (QLabel, QGridLayout, QWidget, QVBoxLayout, QHBoxLay
 
 from PyQt5.QtCore import Qt, QRegExp, QEventLoop, QTimer
 
-from PyQt5.QtGui import QPixmap, QIcon, QRegExpValidator, QDoubleValidator, QIntValidator
+from PyQt5.QtGui import QPixmap, QIcon, QRegExpValidator, QDoubleValidator, QIntValidator, QValidator
 
 import scanivalve
 import time
@@ -17,21 +17,21 @@ def mysleep(ns):
     return None
 
 
-class ScaniGUI(QWidget):
+class ScaniConfig(QWidget):
 
     def __init__(self, ip='191.30.80.131', parent=None):
         
-        super(ScaniGUI, self).__init__(parent)
+        super(ScaniConfig, self).__init__(parent)
 
         self.scani = None
         self.connected = False
-        self.fps = dict(val=1, w=None, validator=QIntValidator(1, 10000000),
+        self.fps = dict(val=1, w=None, validator=QIntValidator(1, 10000000, self),
                         tip="Número de amostras a serem lidas", 
                         xmin=1, xmax=10000000)
-        self.avg = dict(val=16, w=None, validator=QIntValidator(1,240),
+        self.avg = dict(val=16, w=None, validator=QIntValidator(1,240, self),
                         tip = "Número de médias de amostras",
                         xmin=1, xmax=240)
-        self.period = dict(val=500, w=None, validator=QIntValidator(150, 62000),
+        self.period = dict(val=500, w=None, validator=QIntValidator(150, 62000, self),
                            tip = "Tempo de leitura em cada sensor em μs",
                            xmin=150, xmax=65000)
         self.ip = ''
@@ -152,18 +152,25 @@ class ScaniGUI(QWidget):
         self.fps['w'] = QLineEdit(str(self.fps['val']))
         self.fps['w'].setValidator(self.fps['validator'])
         self.fps['w'].setToolTip(self.fps['tip'])
+        self.fps['w'].textChanged.connect(self.check_state)
+        self.fps['w'].textChanged.emit(self.fps['w'].text())
         hb1.addWidget(self.fps['w'])
         
         hb2.addWidget(QLabel("AVG"))
         self.avg['w'] = QLineEdit(str(self.avg['val']))
         self.avg['w'].setValidator(self.avg['validator'])
         self.avg['w'].setToolTip(self.avg['tip'])
+        self.avg['w'].textChanged.connect(self.check_state)
+        self.avg['w'].textChanged.emit(self.avg['w'].text())
+        
         hb2.addWidget(self.avg['w'])
 
         hb3.addWidget(QLabel("PERIOD"))
         self.period['w'] = QLineEdit(str(self.period['val']))
         self.period['w'].setValidator(self.period['validator'])
         self.period['w'].setToolTip(self.period['tip'])
+        self.period['w'].textChanged.connect(self.check_state)
+        self.period['w'].textChanged.emit(self.period['w'].text())
         hb3.addWidget(self.period['w'])
 
         self.freql = QLabel("")
@@ -192,6 +199,18 @@ class ScaniGUI(QWidget):
         
         self.freql.setText('Amostragem: {:.2f} (Hz)'.format(freq))
         self.ttotl.setText('Tempo de aquisição: {:.2f} (s)'.format(ttot))
+
+    def check_state(self, *args, **kwargs):
+        sender = self.sender()
+        validator = sender.validator()
+        state = validator.validate(sender.text(), 0)[0]
+        if state == QValidator.Acceptable:
+            color = '#c4df9b' # green
+        #elif state == QtGui.QValidator.Intermediate:
+        #    color = '#fff79a' # yellow
+        else:
+            color = '#f6989d' # red
+        sender.setStyleSheet('QLineEdit { background-color: %s }' % color)    
         
     def config(self):
         if not self.connected:
@@ -203,6 +222,7 @@ class ScaniGUI(QWidget):
             return False
             
         try:
+            
             fps = int(self.fps['w'].text())
             avg = int(self.avg['w'].text())
             period = int(self.period['w'].text())
@@ -258,7 +278,6 @@ class ScaniGUI(QWidget):
         try:
             if self.connected:
                 s = ['{} = {}\n'.format(x[1], x[2]) for x in self.scani.list_any('S')]
-                print(s)
                 QMessageBox.information(self, 'Configuração do scanivalve',
                                         ''.join(s), QMessageBox.Ok)
                 return True
@@ -332,17 +351,19 @@ class ScaniGUI(QWidget):
         try:
                 
             ntot = self.scani.FPS
-
+            self.scani.stop()
+            self.scani.clear()
+            self.scani.pack.clear()
             self.scani.start()
             
             while True:
                 mysleep(1)
+                if not self.scani.acquiring:
+                    break
                 ns = self.scani.samplesread()
                 self.progress.setValue( ns / ntot * 100)
 
                 if ns > (ntot-2):
-                    break
-                if not self.scani.acquiring:
                     break
 
             p,f = self.scani.read()
@@ -352,10 +373,12 @@ class ScaniGUI(QWidget):
             pshow = ['Canal {}:     {:.1f}\n'.format(i+1, pm[i]) for i in range(16)]
             
             QMessageBox.information(self, 'Pressão média',
-                                    ''.join(pshow), QMessageBox.Ok)
+                                    'Foram lidas {} amostras\n'.format(p.shape[0]) + ''.join(pshow),
+                                    QMessageBox.Ok)
             
 
-        except:
+        except BaseException as e:
+            print(e)
             QMessageBox.critical(self, 'Erro',
                                  'Erro na aquisição da pressão!', 
                                  QMessageBox.Ok)
@@ -369,8 +392,8 @@ class ScaniGUI(QWidget):
                 v.setEnabled(True)
                 
         
-            self.stop()
-            return False
+        self.stop()
+        return False
         
     
     def stop(self):
@@ -385,17 +408,48 @@ class ScaniGUI(QWidget):
                                  QMessageBox.Ok)
             return False
         return False
+    def scanivalve(self):
+        return self.scani
     
         
         
         
+class ScaniWin(QMainWindow):
+
+    def __init__(self, parent=None):
+
+        super(ScaniWin, self).__init__(parent)
+
+        self.widget = QWidget()
+        self.setCentralWidget(self.widget)
+        vb = QVBoxLayout()
+        self.scani = ScaniConfig(parent=self)
+        vb.addWidget(self.scani)
+        #self.fecharb = QPushButton("Fechar")
+        #self.fecharb.clicked.connect(self.close)
+        #vb.addWidget(self.fecharb)
+        
+        self.setWindowTitle("Controle do Scanivalve")
+        self.widget.setLayout(vb)
+        quit = QAction("Fechar", self)
+        quit.triggered.connect(self.sair)        
+    def sair(self):
+        print("SAINDO")
+        self.close()
+    def closeEvent(self, event):
+
+        print("closeEvent")
         
 if __name__ == '__main__':
     app = QApplication([])
 
-    win = ScaniGUI()#'192.168.0.101')
+    win = ScaniWin()#'192.168.0.101')
 
     win.show()
 
     #sys.exit(app.exec_())
     app.exec_()
+
+    win.show()
+    app.exec_()
+    
