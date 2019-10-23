@@ -132,10 +132,6 @@ class BLayer(QMainWindow):
         self.ptswin.show()
         
 
-class ScaniGUI(QWidget):
-
-    def __init__(self, parent=None):
-        
 if __name__ == '__main__':
     app = QApplication([])
 
