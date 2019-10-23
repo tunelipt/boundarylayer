@@ -377,8 +377,7 @@ class ScaniConfig(QWidget):
                                     QMessageBox.Ok)
             
 
-        except BaseException as e:
-            print(e)
+        except:
             QMessageBox.critical(self, 'Erro',
                                  'Erro na aquisição da pressão!', 
                                  QMessageBox.Ok)
@@ -393,7 +392,7 @@ class ScaniConfig(QWidget):
                 
         
         self.stop()
-        return False
+        return not err
         
     
     def stop(self):
@@ -425,20 +424,21 @@ class ScaniWin(QMainWindow):
         vb = QVBoxLayout()
         self.scani = ScaniConfig(parent=self)
         vb.addWidget(self.scani)
-        #self.fecharb = QPushButton("Fechar")
-        #self.fecharb.clicked.connect(self.close)
-        #vb.addWidget(self.fecharb)
+        self.fecharb = QPushButton("Fechar")
+        self.fecharb.clicked.connect(self.sair)
+        vb.addWidget(self.fecharb)
         
         self.setWindowTitle("Controle do Scanivalve")
         self.widget.setLayout(vb)
         quit = QAction("Fechar", self)
         quit.triggered.connect(self.sair)        
     def sair(self):
-        print("SAINDO")
         self.close()
     def closeEvent(self, event):
-
-        print("closeEvent")
+        pass
+    def scanivalve(self):
+        return self.scani.scanivalve()
+    
         
 if __name__ == '__main__':
     app = QApplication([])
