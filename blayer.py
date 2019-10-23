@@ -25,6 +25,7 @@ def mysleep(ns):
     QTimer.singleShot(ns*1000, loop.quit)
     loop.exec_()
     return None
+
     
 class BLayer(QMainWindow):
     """
@@ -131,6 +132,10 @@ class BLayer(QMainWindow):
         self.ptswin.show()
         
 
+class ScaniGUI(QWidget):
+
+    def __init__(self, parent=None):
+        
 if __name__ == '__main__':
     app = QApplication([])
 
