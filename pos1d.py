@@ -4,7 +4,7 @@ import sys
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import (QLabel, QGridLayout, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, qApp, QMenu,
                              QGroupBox, QPushButton, QApplication, QSlider, QMainWindow, QSplashScreen,
-                             QAction, QComboBox)
+                             QAction, QComboBox, QMessageBox)
 from PyQt5.QtCore import Qt, QRegExp
 from PyQt5.QtGui import QPixmap, QIcon, QRegExpValidator, QDoubleValidator, QIntValidator
 import time
@@ -28,6 +28,8 @@ class Pos1dWindow(QMainWindow):
         self.widget = QWidget()
         self.setCentralWidget(self.widget)
 
+        self.is_ready = False
+        
         hb = QHBoxLayout()
         
         vb = QVBoxLayout()
@@ -56,7 +58,9 @@ class Pos1dWindow(QMainWindow):
         self.setWindowTitle('Configurando Robo')
         
         
-
+    def isready(self):
+        return self.is_ready
+    
     def poswin(self, axis='z', p=['10~580~35~1.05'], nsectot=5):
 
         self.nsectot = nsectot
@@ -97,7 +101,7 @@ class Pos1dWindow(QMainWindow):
             vb.addLayout(hb3[i])
 
 
-        self.posplotbut = QPushButton("Programar os pontos")
+        self.posplotbut = QPushButton("Definir os pontos")
         self.posplotbut.clicked.connect(self.checkpoints)
         
         hb2.addWidget(self.posplotbut)
@@ -125,6 +129,11 @@ class Pos1dWindow(QMainWindow):
             
     def checkpoints(self):
         pts = self.getpoints()
+        nsecs = len(pts)
+        npts = sum([len(p[1]) for p in pts])
+        QMessageBox.information(self, 'Pontos definidos', "Foram definindos {} pontos em {} seções distintas".format(npts, nsecs),  QMessageBox.Ok)
+        self.is_read = True
+        
         self.plotwin.draw_points(pts, self.eixocb.currentText())
         
         pass
@@ -166,7 +175,6 @@ class CheckPointsWindow(FigureCanvas):
         nptstot = sum(npts)
         self.axes.set_title("Eixo {}. Total de pontos: {}".format(ax, nptstot))
         
-        print(npts)
         for i in range(nn):
             if npts[i] < 1:
                 continue

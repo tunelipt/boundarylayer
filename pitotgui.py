@@ -180,10 +180,8 @@ class PitotConfig(QWidget):
                 QMessageBox.warning(self, 'Canal já usado',
                                     "Faz sentido? Usando o canal {} como pressão estática".format(self.chans.names()[i2]), QMessageBox.Ok)
             self.chans.check(i2)
-
-
-        print(self.chans.selected)
         return
+    
     def pitot(self):
         Cd = self.getcd()
         itot = self.getitot()
