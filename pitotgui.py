@@ -326,6 +326,17 @@ class PitotWin(QMainWindow):
     def pitotref(self):
         return self.pitotwref.pitot()
 
+    def config(self):
+        pitot = self.pitotw.pitot()
+        pitotref = self.pitotwref.pitot()
+        amesa = (self.anel_mesa.checked(), self.anel_mesa.index())
+        aporta = (self.anel_porta.checked(), self.anel_porta.index())
+        patm = (self.patm.checked(), self.patm.index())
+        rho = float(self.rhotext.text())
+
+        return dict(pitot=pitot, pitotref=pitotref, mesa=amesa, porta=aporta, patm=patm, rho=rho)
+    
+
 if __name__ == '__main__':
     app = QApplication([])
 
@@ -339,7 +350,6 @@ if __name__ == '__main__':
     #sys.exit(app.exec_())
     app.exec_()
 
-    print(win.pitot())
-    print(win.pitotref())
+    print(win.config())
     
         
