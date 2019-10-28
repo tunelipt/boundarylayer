@@ -113,7 +113,10 @@ class BLayer(QMainWindow):
 
         menubar = self.menuBar()
         menuarq = menubar.addMenu("&Arquivo")
-        menurais = menubar.addMenu("&Sair")
+        
+
+        menuarq
+        menusair = menubar.addMenu("&Sair")
         
         
         grp0 = QGroupBox("Configurar movimentação")
