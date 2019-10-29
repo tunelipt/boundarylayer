@@ -4,7 +4,7 @@ import sys
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import (QLabel, QGridLayout, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, qApp, QMenu,
                              QGroupBox, QPushButton, QApplication, QSlider, QMainWindow, QSplashScreen,
-                             QAction, QComboBox, QMessageBox)
+                             QAction, QComboBox, QMessageBox, QDialog, QDialogButtonBox)
 from PyQt5.QtCore import Qt, QRegExp
 from PyQt5.QtGui import QPixmap, QIcon, QRegExpValidator, QDoubleValidator, QIntValidator
 import time
@@ -16,50 +16,62 @@ from matplotlib.figure import Figure
 import numpy as np
 
         
-class Pos1dWindow(QMainWindow):
+class Pos1dDialog(QDialog): 
     """
     Interface para especificação de movimento 1D
     """
 
-    def __init__(self, parent=None):
+    def __init__(self, axis='z', secs=['10~580~35~1.05'], nsectot=5, roundpts=True, parent=None):
 
-        super(Pos1dWindow, self).__init__(parent)
+        super(Pos1dDialog, self).__init__(parent)
+        self.setWindowTitle('Posições de medição')
 
-        self.widget = QWidget()
-        self.setCentralWidget(self.widget)
+        if secs is None:
+            secs = ['' for i in range(nsectot)]
+        elif isinstance(secs, (list, tuple)):
+            nsectot = max(nsectot, len(secs))
+            for i in range(len(secs), nsectot):
+                secs.append('')
+        else:
+            secs = [secs]
+            for i in range(1, nsectot):
+                secs.append('')
 
-        self.is_ready = False
-        
+        self.roundpts = roundpts
+        self.secs = secs
+        self.nsectot = nsectot
+
+        vb0 = QVBoxLayout()
         hb = QHBoxLayout()
-        
         vb = QVBoxLayout()
         
-        self.posgb = self.poswin()
+        self.posgb = self.poswin(axis, secs, nsectot)
         
         vb.addWidget(self.posgb)
-        self.sairbut = QPushButton("Sair")
-        self.sairbut.clicked.connect(self.sair)        
-        vb.addWidget(self.sairbut)
         hb.addLayout(vb)
 
         dpi = 100
         width=5
         height=4
-        self.plt = QGroupBox("Verificação", width=width*100, height=height*dpi)
+        plt = QGroupBox("Visualização dos pontos", width=width*100, height=height*dpi)
+        
         vb1 = QVBoxLayout()
         
         self.plotwin = CheckPointsWindow(self, width, height, dpi)
         vb1.addWidget(self.plotwin)
-        hb.addLayout(vb1)
+        plt.setLayout(vb1)
+        hb.addWidget(plt)
 
-        quit = QAction("Sair", self)
-        quit.triggered.connect(self.sair)        
-        self.widget.setLayout(hb)
-        self.setWindowTitle('Configurando Robo')
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        vb0.addLayout(hb)
+        vb0.addWidget(self.buttonBox)
+
+        self.setLayout(vb0)
         
-        
-    def isready(self):
-        return self.is_ready
     
     def poswin(self, axis='z', p=['10~580~35~1.05'], nsectot=5):
 
@@ -75,7 +87,14 @@ class Pos1dWindow(QMainWindow):
         eixolab = QLabel('Eixo')
         self.eixocb = QComboBox()
         self.eixocb.addItems(['x', 'y', 'z'])
-        self.eixocb.setCurrentIndex(2)
+        axis = axis.lower()
+        if axis == 'x':
+            idx = 0
+        elif axis=='y':
+            idx = 1
+        else:
+            idx = 2
+        self.eixocb.setCurrentIndex(idx)
         hb1.addWidget(eixolab)
         hb1.addWidget(self.eixocb)
         
@@ -101,7 +120,7 @@ class Pos1dWindow(QMainWindow):
             vb.addLayout(hb3[i])
 
 
-        self.posplotbut = QPushButton("Definir os pontos")
+        self.posplotbut = QPushButton("Ver os pontos")
         self.posplotbut.clicked.connect(self.checkpoints)
         
         hb2.addWidget(self.posplotbut)
@@ -120,15 +139,17 @@ class Pos1dWindow(QMainWindow):
 
             try:
                 p = pos.parsenumlst(s)
-                points.append((i, p))
+                points.append((i, p, s))
             except:
                 QMessageBox.critical(self, 'Erro interpretando os pontos', "Não foi possível entender o que {} quer dizer".format(s),  QMessageBox.Ok)
                 return None
-        return points
+        axis = ['x', 'y', 'z'][self.eixocb.currentIndex()]
+        return axis, points
+    
             
             
     def checkpoints(self):
-        pts = self.getpoints()
+        axis, pts = self.getpoints()
         nsecs = len(pts)
         npts = sum([len(p[1]) for p in pts])
         QMessageBox.information(self, 'Pontos definidos', "Foram definindos {} pontos em {} seções distintas".format(npts, nsecs),  QMessageBox.Ok)
@@ -136,9 +157,6 @@ class Pos1dWindow(QMainWindow):
         
         self.plotwin.draw_points(pts, self.eixocb.currentText())
         
-        pass
-    def sair(self):
-        self.close()
         
         
     
@@ -165,12 +183,9 @@ class CheckPointsWindow(FigureCanvas):
     def draw_points(self, pts, ax='z'):
         self.axes.cla()
         nn = len(pts)
-        if ax=='z':
-            self.axes.set_xlabel('Velocidade')
-            self.axes.set_ylabel('Altura {} (mm)'.format(ax))
-        else:
-            self.axes.set_xlabel('Posição {} (mm)'.format(ax))
-            self.axes.set_ylabel('Velocidade')
+        self.axes.set_xlabel('Velocidade')
+        self.axes.set_ylabel('Altura {} (mm)'.format(ax))
+
         npts = [len(p[1]) for p in pts]
         nptstot = sum(npts)
         self.axes.set_title("Eixo {}. Total de pontos: {}".format(ax, nptstot))
@@ -181,12 +196,11 @@ class CheckPointsWindow(FigureCanvas):
             isec = pts[i][0]
             pp = np.array(pts[i][1])
             if ax=='z':
-                y = pp
                 x = 10.0 * (pp/500)**0.3
-                
+                y = pp
             else: # ax=='x' ou 'y':
                 x = pp
-                y = np.ones(len(pp))
+                y = 10*np.ones(len(pp))
             self.axes.plot(x, y, color=self.colors[i], marker='o', linestyle='' ,
                            label='Seção {} - {} pontos'.format(isec+1, npts[i]))
 
@@ -199,12 +213,14 @@ class CheckPointsWindow(FigureCanvas):
 if __name__ == '__main__':
     app = QApplication([])
 
-    win = Pos1dWindow()
+    win = Pos1dDialog('x', ['50:200:40'])#, '300:2400:100', '2440:2600:40'])
+    ret = win.exec_()
 
-    win.show()
-
-    #sys.exit(app.exec_())
-    app.exec_()
-
-    print(win.getpoints())
+    if ret:
+        axis, pts = win.getpoints()
+        print('Eixo: {}'.format(axis))
+        print(pts)
+    else:
+        print("NADA")
+        
     
