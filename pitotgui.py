@@ -65,12 +65,12 @@ class ChannelConfig(object):
 
 class PitotWidget(QWidget):
 
-    def __init__(self, lab, chans, Cd=0.997, chtot=15, chest=16, parent=None):
+    def __init__(self, lab, chans, Cd=0.997, chtot=15, chest=16, use=True, parent=None):
         super(PitotWidget, self).__init__(parent)
         self.lab = lab
         self.Cd = Cd
         self.chans = chans
-
+        self.use = use
         self.itot = chtot
         self.iest = chest
         self.draw_gui()
@@ -130,11 +130,12 @@ class PitotWidget(QWidget):
 
         self.chbx = QCheckBox("Usar este Pitot?")
         self.chbx.stateChanged.connect(self.clickcheck)
-        self.chbx.setChecked(True)
-
+        self.chbx.setChecked(self.use)
         self.grp.setLayout(vb)
         vb0 = QVBoxLayout()
 
+        if not self.use:
+            self.grp.setEnabled(False)
         
         vb0.addWidget(self.grp)
         vb0.addWidget(self.chbx)
@@ -145,11 +146,8 @@ class PitotWidget(QWidget):
     def clickcheck(self, state):
 
         chk = self.chbx.isChecked()
-
-        if chk:
-            self.grp.setEnabled(True)
-        else:
-            self.grp.setEnabled(False)
+        self.use = chk
+        self.grp.setEnabled(chk)
 
     def checked(self):
 
@@ -187,7 +185,7 @@ class PitotWidget(QWidget):
         itot = self.getitot()
         iest = self.getiest()
         chk = self.checked()
-        return dict(kind='pitot', use=chk, Cd=Cd, chans=(itot, iest))
+        return dict(kind='pitot', use=chk, Cd=Cd, chan=(itot, iest))
     
         
     def getcd(self):
@@ -256,18 +254,32 @@ class ChannelConnect(QWidget):
 class PitotConfig(QDialog):
 
 
-    def __init__(self, chans, parent=None):
+    def __init__(self, chans, config=None, parent=None):
         
 
         super(PitotConfig, self).__init__(parent)
         self.setWindowTitle('Configuração dos Pitots')
+        
+        if config is None:
+            config = {}
+            config['pitot'] = dict(kind='pitot', use=True, Cd=0.997, chan=(15,16))
+            config['pitotref'] = dict(kind='pitot', use=True, Cd=0.997, chan=(13,14))
+            config['mesa'] = dict(kind='presstap', use=True, chan=11)
+            config['porta'] = dict(kind='presstap', use=True, chan=12)
+            config['patm'] = dict(kind='presstap', use=True, chan=1)
+        
+        self.setup_ui(config, chans)
+        
 
-        self.scani = None
+    def setup_ui(self, config, chans):
+    
         hb = QHBoxLayout()
         vb = QVBoxLayout()
-
-        self.pitotw = PitotWidget("Pitot", chans, 0.997, 15, 16)
-        self.pitotwref = PitotWidget("Pitot de Ref.", chans, 0.997, 13, 14)
+        
+        self.pitotw = PitotWidget("Pitot", chans, config['pitot']['Cd'],
+                                  config['pitot']['chan'][0], config['pitot']['chan'][1]) 
+        self.pitotwref = PitotWidget("Pitot de Referência", chans, config['pitotref']['Cd'],
+                                     config['pitotref']['chan'][0], config['pitotref']['chan'][1]) 
         hb.addWidget(self.pitotw)
         hb.addWidget(self.pitotwref)
         
@@ -354,7 +366,13 @@ if __name__ == '__main__':
     ret = win.exec_()
 
     if ret:
-        print(win.config())
+        config = win.config()
+        print(config)
+        win2 = PitotConfig(ChannelConfig(chans), config)
+        win2.exec_()
+        print('=====================')
+        print(win2.config())
+        
     else:
         print("NADA")
         
