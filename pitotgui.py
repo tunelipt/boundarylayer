@@ -1,7 +1,7 @@
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import (QLabel, QGridLayout, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, qApp, QMenu,
                              QGroupBox, QPushButton, QApplication, QSlider, QMainWindow, QSplashScreen,
-                             QAction, QComboBox, QMessageBox, QCheckBox)
+                             QAction, QComboBox, QMessageBox, QCheckBox, QDialog, QDialogButtonBox)
 
 from PyQt5.QtCore import Qt, QRegExp, QEventLoop, QTimer
 from PyQt5 import QtCore
@@ -63,10 +63,10 @@ class ChannelConfig(object):
         return self.nch
     
 
-class PitotConfig(QWidget):
+class PitotWidget(QWidget):
 
     def __init__(self, lab, chans, Cd=0.997, chtot=15, chest=16, parent=None):
-        super(PitotConfig, self).__init__(parent)
+        super(PitotWidget, self).__init__(parent)
         self.lab = lab
         self.Cd = Cd
         self.chans = chans
@@ -187,8 +187,7 @@ class PitotConfig(QWidget):
         itot = self.getitot()
         iest = self.getiest()
         chk = self.checked()
-        
-        return chk, Cd, itot, iest
+        return dict(kind='pitot', use=chk, Cd=Cd, chans=(itot, iest))
     
         
     def getcd(self):
@@ -254,22 +253,21 @@ class ChannelConnect(QWidget):
     def index(self):
         return self.lst.currentIndex()
     
-class PitotWin(QMainWindow):
+class PitotConfig(QDialog):
 
 
     def __init__(self, chans, parent=None):
         
 
-        super(PitotWin, self).__init__(parent)
-        self.widget = QWidget()
-        self.setCentralWidget(self.widget)
+        super(PitotConfig, self).__init__(parent)
+        self.setWindowTitle('Configuração dos Pitots')
 
         self.scani = None
         hb = QHBoxLayout()
         vb = QVBoxLayout()
 
-        self.pitotw = PitotConfig("Pitot", chans, 0.997, 15, 16)
-        self.pitotwref = PitotConfig("Pitot de Ref.", chans, 0.997, 13, 14)
+        self.pitotw = PitotWidget("Pitot", chans, 0.997, 15, 16)
+        self.pitotwref = PitotWidget("Pitot de Ref.", chans, 0.997, 13, 14)
         hb.addWidget(self.pitotw)
         hb.addWidget(self.pitotwref)
         
@@ -314,9 +312,15 @@ class PitotWin(QMainWindow):
         hb2.addWidget(grp2)
                 
         vb.addLayout(hb2)
-        self.widget.setLayout(vb)
+
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        vb.addWidget(self.buttonBox)
+
+        self.setLayout(vb)
         
-        self.setWindowTitle('Configuração dos Pitots')
 
     def pitot(self):
         return self.pitotw.pitot()
@@ -327,10 +331,10 @@ class PitotWin(QMainWindow):
     def config(self):
         pitot = self.pitotw.pitot()
         pitotref = self.pitotwref.pitot()
-        amesa = (self.anel_mesa.checked(), self.anel_mesa.index())
-        aporta = (self.anel_porta.checked(), self.anel_porta.index())
-        patm = (self.patm.checked(), self.patm.index())
-        rho = float(self.rhotext.text())
+        amesa = dict(kind='presstap', use=self.anel_mesa.checked(), chan=self.anel_mesa.index())
+        aporta = dict(kind='presstap', use=self.anel_porta.checked(), chan=self.anel_porta.index())
+        patm = dict(kind='presstap', use=self.patm.checked(), chan=self.patm.index())
+        rho = dict(kind='val', val=float(self.rhotext.text()))
 
         return dict(pitot=pitot, pitotref=pitotref, mesa=amesa, porta=aporta, patm=patm, rho=rho)
     
@@ -341,13 +345,18 @@ if __name__ == '__main__':
     chans = ["Canal {}".format(i) for i in range(17)]
     chans[0] = "REF"
     
-    win = PitotWin(ChannelConfig(chans))
-
-    win.show()
+    win = PitotConfig(ChannelConfig(chans))
+    
+    
+    #win.show()
 
     #sys.exit(app.exec_())
-    app.exec_()
+    ret = win.exec_()
 
-    print(win.config())
+    if ret:
+        print(win.config())
+    else:
+        print("NADA")
+        
     
         

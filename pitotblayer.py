@@ -82,7 +82,7 @@ class RoboIP(QDialog):
         return ip, port
         
     
-class BLayer(QMainWindow):
+class PitotBLayer(QMainWindow):
     """
     Interface para especificação de movimento 1D
     """
@@ -97,10 +97,9 @@ class BLayer(QMainWindow):
 
 
         self.mov = None
-
         self.scaniwin = None
-        self.ptswin = None
-        self.pitotwin = None
+        self.pts = None
+        self.pitot = None
         
         chans = ["Canal {}".format(i) for i in range(17)]
         chans[0] = "REF"
