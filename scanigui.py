@@ -19,19 +19,29 @@ def mysleep(ns):
 
 class ScaniConfig(QWidget):
 
-    def __init__(self, ip='191.30.80.131', parent=None):
-        
+    def __init__(self, ip='191.30.80.131', initconfig=None, parent=None):
+
+        self.initconfig = initconfig
+        if initconfig is not None:
+            fps = initconfig['FPS']
+            avg = initconfig['AVG']
+            period = initconfig['PERIOD']
+        else:
+            fps = 1
+            avg = 16
+            period = 500
+            
         super(ScaniConfig, self).__init__(parent)
 
         self.scani = None
         self.connected = False
-        self.fps = dict(val=1, w=None, validator=QIntValidator(1, 10000000, self),
+        self.fps = dict(val=fps, w=None, validator=QIntValidator(1, 10000000, self),
                         tip="Número de amostras a serem lidas", 
                         xmin=1, xmax=10000000)
-        self.avg = dict(val=16, w=None, validator=QIntValidator(1,240, self),
+        self.avg = dict(val=avg, w=None, validator=QIntValidator(1,240, self),
                         tip = "Número de médias de amostras",
                         xmin=1, xmax=240)
-        self.period = dict(val=500, w=None, validator=QIntValidator(150, 62000, self),
+        self.period = dict(val=period, w=None, validator=QIntValidator(150, 62000, self),
                            tip = "Tempo de leitura em cada sensor em μs",
                            xmin=150, xmax=65000)
         self.ip = ''
@@ -65,6 +75,9 @@ class ScaniConfig(QWidget):
         
     def draw_connect(self, ip='191.30.80.131'):
 
+        if self.initconfig is not None:
+            ip = self.initconfig['ip']
+            
         ipg = QGroupBox("Conexão")
         vb1 = QVBoxLayout()
         hb1 = QHBoxLayout()
@@ -78,7 +91,7 @@ class ScaniConfig(QWidget):
         
         vb1.addWidget(self.ipb)
         self.ipb.clicked.connect(self.connect)
-
+        
         self.modell = QLabel("")
         vb1.addWidget(self.modell)
         
@@ -99,6 +112,7 @@ class ScaniConfig(QWidget):
             return False
         
         try:
+            
             ip = self.ipt.text()
             self.ip = ip
             self.scani = scanivalve.Scanivalve(ip)
@@ -107,9 +121,21 @@ class ScaniConfig(QWidget):
             self.ipb.setToolTip('Desconectar o scanivalve')
             self.confg.setEnabled(True)
             self.model = self.scani.get_model()
-
+            if self.initconfig is not None:
+                if self.model == self.initconfig['model']:
+                    self.scani.config(FPS=self.initconfig['FPS'],
+                                      AVG=self.initconfig['AVG'],
+                                      PERIOD=self.initconfig['PERIOD'])
+                    
             self.config_model(self.model)
             
+            if self.initconfig is not None:
+                if self.model == self.initconfig['model']:
+                    self.scani.config(FPS=self.initconfig['FPS'],
+                                      AVG=self.initconfig['AVG'],
+                                      PERIOD=self.initconfig['PERIOD'])
+            self.initconfig = None
+
             self.modell.setText('Modelo DSA-{}'.format(self.model))
             self.confg.setEnabled(True)
             self.opg.setEnabled(True)
@@ -257,6 +283,7 @@ class ScaniConfig(QWidget):
         op_stop = QPushButton("STOP")
         op_stop.setToolTip("Parar de fazer qualquer coisa no scanivalve")
         op_stop.clicked.connect(self.stop)
+        op_stop.setEnabled(False)
         
         vb.addWidget(op_lists)
         vb.addWidget(op_zero)
@@ -325,7 +352,7 @@ class ScaniConfig(QWidget):
                 v.setEnabled(True)
             
             self.progress.setVisible(False)
-        
+            
         except:
             pass
 
@@ -347,7 +374,7 @@ class ScaniConfig(QWidget):
             if k != "stop":
                 v.setEnabled(False)
         err = False
-        
+        self.op_buts['stop'].setEnabled(True)
         try:
                 
             ntot = self.scani.FPS
@@ -386,6 +413,7 @@ class ScaniConfig(QWidget):
         self.progress.setVisible(False)
         self.ipg.setEnabled(True)
         self.confg.setEnabled(True)
+        self.op_buts['stop'].setEnabled(False)
         for k,v in self.op_buts.items():
             if k != "stop":
                 v.setEnabled(True)
@@ -409,20 +437,26 @@ class ScaniConfig(QWidget):
         return False
     def scanivalve(self):
         return self.scani
+    def scanivalve_config(self):
+        if self.connected:
+            return dict(kind='scanivalve', model=self.model, ip=self.scani.ip, FPS=self.scani.FPS,
+                        PERIOD=self.scani.PERIOD, AVG=self.scani.AVG)
+        return None
     
+        
         
         
         
 class ScaniWin(QMainWindow):
 
-    def __init__(self, parent=None):
+    def __init__(self, ip='191.30.80.131', initconfig=None, parent=None):
 
         super(ScaniWin, self).__init__(parent)
 
         self.widget = QWidget()
         self.setCentralWidget(self.widget)
         vb = QVBoxLayout()
-        self.scani = ScaniConfig(parent=self)
+        self.scani = ScaniConfig(ip, initconfig, parent=self)
         vb.addWidget(self.scani)
         self.fecharb = QPushButton("Fechar")
         self.fecharb.clicked.connect(self.sair)
@@ -438,6 +472,8 @@ class ScaniWin(QMainWindow):
         pass
     def scanivalve(self):
         return self.scani.scanivalve()
+    def scanivalve_config(self):
+        return self.scani.scanivalve_config()
     
         
 if __name__ == '__main__':
@@ -450,6 +486,10 @@ if __name__ == '__main__':
     #sys.exit(app.exec_())
     app.exec_()
 
-    win.show()
-    app.exec_()
+    conf = win.scanivalve_config()
+    print(conf)
+    #win.scanivalve().close()
+    #win2 = ScaniWin(initconfig=conf)#'192.168.0.101')
+    #win2.show()
+    #app.exec_()
     
