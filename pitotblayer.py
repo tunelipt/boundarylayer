@@ -18,6 +18,8 @@ import numpy as np
 
 import pos1d
 import wrobolib.roboclient as roboclient
+from wrobolib import pyqtrobo
+
 
 
 def mysleep(ns):
@@ -81,8 +83,8 @@ class RoboIP(QDialog):
 
         return ip, port
         
-    
-class PitotBLayer(QMainWindow):
+            
+class PitotBLayerWin(QMainWindow):
     """
     Interface para especificação de movimento 1D
     """
@@ -90,79 +92,188 @@ class PitotBLayer(QMainWindow):
     def __init__(self, parent=None):
 
         
-        super(BLayer, self).__init__(parent)
-
+        super(PitotBLayerWin, self).__init__(parent)
         self.widget = QWidget()
         self.setCentralWidget(self.widget)
+        self.setWindowTitle('Camada Limite com Pitot')
+        
 
-
-        self.mov = None
-        self.scaniwin = None
-        self.pts = None
-        self.pitot = None
         
         chans = ["Canal {}".format(i) for i in range(17)]
         chans[0] = "REF"
         self.chans = pitotgui.ChannelConfig(chans)
         
-        hb = QHBoxLayout()
-        vb1 = QVBoxLayout()
-        vb2 = QVBoxLayout()
+        self.setup_ui()
 
+        self.url = None
+        self.robo = None
+        self.robowin = None
+        self.pos = None
+        self.scaniwin = None
+        self.pitot = None
 
+        
+    def setup_ui(self):
+
+        
         menubar = self.menuBar()
-        menuarq = menubar.addMenu("&Arquivo")
-        
+        menufile = menubar.addMenu("&Arquivo")
+        newAct = QAction("&Novo", self)
+        newAct.setShortcut("Ctrl+N")
+        newAct.setStatusTip("Nova medição de camada limite")
+        newAct.triggered.connect(self.menu_new)
+        menufile.addAction(newAct)
 
-        menuarq
-        menusair = menubar.addMenu("&Sair")
-        
-        
-        grp0 = QGroupBox("Configurar movimentação")
-        self.url = 'localhost', 9595
-        buttonRobo = QPushButton("Configurar Robo")
-        vb2.addWidget(buttonRobo)
-        buttonRobo.clicked.connect(self.conectar_robo)
-        
-        
+        saveAct = QAction('&Salvar', self)
+        saveAct.setShortcut('Ctrl+S')
+        saveAct.setStatusTip('Salvar dados de configuração e medição')
+        saveAct.triggered.connect(self.menu_save)
+        menufile.addAction(saveAct)
+        menufile.addSeparator()
 
-        self.ptsbutton = QPushButton("Definição dos pontos de medição")
-        self.ptsbutton.clicked.connect(self.def_points)
-        vb2.addWidget(self.ptsbutton)
 
-        grp0.setLayout(vb2)
-        vb1.addWidget(grp0)
-        
+        exitAct = QAction('Sai&r', self)
+        exitAct.setShortcut('Ctrl+Q')
+        exitAct.setStatusTip('Sair do programa')
+        exitAct.triggered.connect(self.menu_exit)
+        menufile.addAction(exitAct)
 
-        grp1 = QGroupBox("Configurar aquisição de dados")
-        vb3 = QVBoxLayout()
-        self.scanibut = QPushButton("Configurar Scanivalve")
-        self.scanibut.setToolTip("Configurar e conectar com o scanivalve")
-        self.scanibut.clicked.connect(self.scani_config)
-        vb3.addWidget(self.scanibut)
+        menupos = menubar.addMenu("&Posição")
 
-        self.pitotbut = QPushButton("Configuras os tubos de Pitot")
-        self.pitotbut.setToolTip("Configurar os tubos de Pitot e tomadas de pressão do Scanivalve")
-        self.pitotbut.clicked.connect(self.pitot_config)
-        vb3.addWidget(self.pitotbut)
+        rconnAct = QAction('&Conexão com robô', self)
+        rconnAct.setStatusTip('Conectar ao servidor XML-RPC do robô')
+        rconnAct.triggered.connect(self.menu_rconn)
+        menupos.addAction(rconnAct)
 
-        grp1.setLayout(vb3)
-        vb1.addWidget(grp1)
-
-        self.measbutton = QPushButton("Realizar Medições")
-        self.measbutton.setEnabled(False)
-        self.measbutton.clicked.connect(self.measure)
-
-        vb1.addWidget(self.measbutton)
+        rdisconnAct = QAction('&Desconectar robô', self)
+        rdisconnAct.setStatusTip('Desconectar da interface XML-RPC do robô')
+        rdisconnAct.triggered.connect(self.menu_rdisconn)
+        menupos.addAction(rdisconnAct)
+        menupos.addSeparator()
+        rdisconnAct.setEnabled(False)
         
         
-        hb.addLayout(vb1)
+        roboAct = QAction('Posicinal &robô', self)
+        roboAct.setStatusTip('Interface para mover robô')
+        roboAct.setShortcut('Ctrl+R')
+        roboAct.triggered.connect(self.menu_robo)
+        menupos.addAction(roboAct)
+        roboAct.setEnabled(False)
+        
+        menupos.addSeparator()
+
+        posAct = QAction('&Pontos de medição', self)
+        posAct.setStatusTip('Definição dos pontos de medição')
+        posAct.triggered.connect(self.menu_pos)
+        menupos.addAction(posAct)
+        
+        menumeas = menubar.addMenu("&Medidas")
+
+        scaniAct = QAction('&Scanivalve', self)
+        #scaniAct.setShortcut('Ctrl+V')
+        scaniAct.setStatusTip('Configurar e conectar ao Scanivalve')
+        scaniAct.triggered.connect(self.menu_scanivalve)
+        menumeas.addAction(scaniAct)
+
+        pitotAct = QAction('&Configurar medições', self)
+        #pitotAct.setShortcut('Ctrl+P')
+        pitotAct.setStatusTip('Configurar canais e medições')
+        pitotAct.triggered.connect(self.menu_pitot)
+        menumeas.addAction(pitotAct)
+        
+        menumeas.addSeparator()
+
+        measAct = QAction('&Medir!', self)
+        measAct.setShortcut('Ctrl+M')
+        measAct.setStatusTip('Realizar o ensaio')
+        measAct.triggered.connect(self.menu_measure)
+        menumeas.addAction(measAct)
+        
+        self.menu = dict(new=newAct, save=saveAct, exit=exitAct,
+                         rconn=rconnAct, rdisconn=rdisconnAct, robo=roboAct, pos=posAct,
+                         scanivalve=scaniAct, pitot=pitotAct, measure=measAct)
+        
+        self.statusBar()
+        
+
+        hb = QHBoxLayout()
 
         self.widget.setLayout(hb)
         self.setWindowTitle('Camada Limite com Pitot')
 
         #self.ptswin = pos1d.Pos1dWindow()
+    def menu_new(self):
+        print("NOVO!")
+    def menu_save(self):
+        print('SALVAR')
+    def menu_exit(self):
+        print('SAIR')
+    def menu_rconn(self):
+        if self.url is not None:
+            ip, port = self.url
+        else:
+            ip, port = 'localhost', 9595
+        dlg = RoboIP(ip, port)
+        if dlg.exec_():
+            self.url = dlg.url()
+            ip, port = self.url
+            ntries = 3
+            wait = 3
+            robo = RoboClient()
+            err = False
+            self.setEnabled(False)
+            for i in range(ntries):
+                mysleep(wait)
+                print('Tentando conectar...')
+                success = robo.connect(ip, port)
+                if success:
+                    QMessageBox.information(self, 'Conexão com o Robo bem sucedida',
+                                            "Conectado ao servidor XML-RPC do robo em http://{}:{}".format(ip, port), QMessageBox.Ok)
+                    self.robo = robo
+                    self.setEnabled(True)
+                    self.menu['rconn'].setEnabled(False)
+                    self.menu['rdisconn'].setEnabled(True)
+                    self.menu['robo'].setEnabled(True)
+                    return
+                else:
+                    err = True
+                    
+            QMessageBox.critical(self, 'Erro conectando ao servidor XML-RPC',
+                                 "Inicie o servidor de XML-RPC do robô ou mude o IP/Porta",
+                                 QMessageBox.Ok)
+            self.setEnabled(True)
+            self.robo = None
+        return 
+        
+    def menu_rdisconn(self):
+        ans = QMessageBox.information(self, 'Desconexão do robô',
+                                      "Desconectar da interface XML-RPC do robô?",
+                                      QMessageBox.Ok | QMessageBox.Cancel)
+        if ans == QMessageBox.Ok:
+            self.robo = None
+            self.menu['rconn'].setEnabled(True)
+            self.menu['rdisconn'].setEnabled(False)
+            self.menu['robo'].setEnabled(False)
 
+    def menu_robo(self):
+        if self.robowin is not None:
+            self.robowin.robo = self.robo
+        else:
+            self.robowin = pyqtrobo.RoboWindow(self.robo, 'Camada Limite', None, self)
+
+        self.robowin.show()
+        
+            
+        print('POSICIONAR ROBO')
+    def menu_pos(self):
+        print('Definir pontos')
+    def menu_scanivalve(self):
+        print('Configurar scanivalve')
+    def menu_pitot(self):
+        print('COnfigurar canais!')
+    def menu_measure(self):
+        print('MEDIR!!!')
+        
     def all_ready(self):
 
         if self.ptswin is not None and self.scaniwin is not None and self.pitotwin is not None:
@@ -282,7 +393,7 @@ class PitotMeasWin(QMainWindow):
 if __name__ == '__main__':
     app = QApplication([])
 
-    win = BLayer()#'192.168.0.101')
+    win = PitotBLayerWin()#'192.168.0.101')
 
     win.show()
 
