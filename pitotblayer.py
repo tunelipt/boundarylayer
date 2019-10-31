@@ -4,7 +4,8 @@ import sys
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import (QLabel, QGridLayout, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, qApp, QMenu,
                              QGroupBox, QPushButton, QApplication, QSlider, QMainWindow, QSplashScreen,
-                             QAction, QComboBox, QMessageBox, QDialogButtonBox, QDialog)
+                             QAction, QComboBox, QMessageBox, QDialogButtonBox, QDialog,
+                             QRadioButton, QListWidget)
 
 from PyQt5.QtCore import Qt, QRegExp, QEventLoop, QTimer
 
@@ -82,6 +83,64 @@ class RoboIP(QDialog):
         port = int(self.porttext.text())
 
         return ip, port
+
+ch = '✓'
+
+class WindTunnelTest(QWidget):
+
+    def __init__(self, ptslst, parent=None):
+        super(WindTunnelTest, self).__init__(parent)
+        self.ptslst = ptslst
+        hb = QHBoxLayout()
+        self.active_section = 0
+        self.change_section = True
+        grp1 = self.setup_ptslst(ptslst)
+
+        hb.addWidget(grp1)
+        self.setLayout(hb)
+        return
+    
+    def setup_ptslst(self, ptslst):
+
+        grp = QGroupBox("Pontos de medição")
+        vb = QVBoxLayout()
+
+        nsecs = len(ptslst)
+        secnames = ["Parte {}".format(i+1) for i in range(nsecs)]
+        self.radio = [QRadioButton(s) for s in secnames]
+        for i in range(nsecs):
+            self.radio[i].section = i
+            self.radio[i].toggled.connect(self.onClicked)
+        self.text = [QListWidget(self) for i in range(nsecs)]
+        self.radio[self.active_section].setChecked(True)
+        for i in range(nsecs):
+            t = self.text[i]
+            print(ptslst[i])
+            for s in range(ptslst[i]):
+                t.addItem('Ponto {}'.format(s+1))
+
+        for i in range(nsecs):
+            vb.addWidget(self.radio[i])
+            vb.addWidget(self.text[i])
+            self.text[i].setVisible(False)
+
+
+        self.text[self.active_section].setVisible(True)
+        
+        
+        grp.setLayout(vb)
+        return grp
+    def onClicked(self):
+        r = self.sender()
+        i = r.section
+        self.text[self.active_section].setVisible(False)
+        self.text[i].setVisible(True)
+        self.active_section = i
+        self.change_section = True
+        
+        
+    def setup_meas(self):
+        pass
         
             
 class PitotBLayerWin(QMainWindow):
@@ -329,8 +388,8 @@ class PitotMeasWin(QMainWindow):
 if __name__ == '__main__':
     app = QApplication([])
 
-    win = PitotBLayerWin()#'192.168.0.101')
-
+    #win = PitotBLayerWin()#'192.168.0.101')
+    win = WindTunnelTest([30, 20, 10, 5])
     win.show()
 
     app.exec_()
