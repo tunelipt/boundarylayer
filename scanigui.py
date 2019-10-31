@@ -474,6 +474,9 @@ class ScaniWin(QMainWindow):
         return self.scani.scanivalve()
     def scanivalve_config(self):
         return self.scani.scanivalve_config()
+    def connected(self):
+        return self.scani.connected
+    
     
         
 if __name__ == '__main__':

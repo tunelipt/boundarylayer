@@ -153,7 +153,7 @@ class PitotBLayerWin(QMainWindow):
         rdisconnAct.setEnabled(False)
         
         
-        roboAct = QAction('Posicinal &robô', self)
+        roboAct = QAction('Posicinar &robô', self)
         roboAct.setStatusTip('Interface para mover robô')
         roboAct.setShortcut('Ctrl+R')
         roboAct.triggered.connect(self.menu_robo)
@@ -275,9 +275,23 @@ class PitotBLayerWin(QMainWindow):
             self.pos = dlg.getpoints()
             
     def menu_scanivalve(self):
-        print('Configurar scanivalve')
+        if self.scaniwin is None:
+            self.scaniwin = scanigui.ScaniWin(parent=self)
+        self.scaniwin.show()
+        #if self.all_ready():
+        #    self.measbutton.setEnabled(True)
+        #print('Configurar scanivalve')
     def menu_pitot(self):
-        print('COnfigurar canais!')
+        if self.pitot is not None:
+            dlg = pitotgui.PitotConfig(self.chans, self.pitot, self)
+        else:
+            dlg = pitotgui.PitotConfig(self.chans, parent=self)
+
+        ans = dlg.exec_()
+
+        if ans:
+            self.pitot = dlg.config()
+
     def menu_measure(self):
         print('MEDIR!!!')
         
