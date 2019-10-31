@@ -201,7 +201,6 @@ class PitotBLayerWin(QMainWindow):
         self.widget.setLayout(hb)
         self.setWindowTitle('Camada Limite com Pitot')
 
-        #self.ptswin = pos1d.Pos1dWindow()
     def menu_new(self):
         print("NOVO!")
     def menu_save(self):
@@ -263,10 +262,18 @@ class PitotBLayerWin(QMainWindow):
 
         self.robowin.show()
         
-            
-        print('POSICIONAR ROBO')
     def menu_pos(self):
-        print('Definir pontos')
+        if self.pos is not None:
+            axis, points = self.pos
+            secs = [p[2] for p in points]
+        else:
+            secs = pos1d.secsdefault
+            axis = 'z'
+        dlg = pos1d.Pos1dDialog(axis, secs, parent=self)
+        ans = dlg.exec_()
+        if ans:
+            self.pos = dlg.getpoints()
+            
     def menu_scanivalve(self):
         print('Configurar scanivalve')
     def menu_pitot(self):
@@ -276,7 +283,7 @@ class PitotBLayerWin(QMainWindow):
         
     def all_ready(self):
 
-        if self.ptswin is not None and self.scaniwin is not None and self.pitotwin is not None:
+        if self.pos is not None and self.scaniwin is not None and self.pitotwin is not None:
             return True
         else:
             return False
@@ -397,10 +404,6 @@ if __name__ == '__main__':
 
     win.show()
 
-    #sys.exit(app.exec_())
     app.exec_()
 
-    print(win.points())
-          
-    #print(win.getpoints())
     

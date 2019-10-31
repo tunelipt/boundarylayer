@@ -15,17 +15,19 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import numpy as np
 
+secsdefault = ['10~580~35~1.05']
+
         
 class Pos1dDialog(QDialog): 
     """
     Interface para especificação de movimento 1D
     """
 
-    def __init__(self, axis='z', secs=['10~580~35~1.05'], nsectot=5, roundpts=True, parent=None):
+    def __init__(self, axis='z', secs=secsdefault, nsectot=5, roundpts=1, parent=None):
 
         super(Pos1dDialog, self).__init__(parent)
         self.setWindowTitle('Posições de medição')
-
+            
         if secs is None:
             secs = ['' for i in range(nsectot)]
         elif isinstance(secs, (list, tuple)):
@@ -36,6 +38,16 @@ class Pos1dDialog(QDialog):
             secs = [secs]
             for i in range(1, nsectot):
                 secs.append('')
+
+        if roundpts:
+            if isinstance(roundpts, int):
+                self.ndigits = roundpts
+            else:
+                self.ndigits = 0
+            self.roundpts = True
+        else:
+            self.roundpts = False
+            
 
         self.roundpts = roundpts
         self.secs = secs
@@ -97,7 +109,6 @@ class Pos1dDialog(QDialog):
         self.eixocb.setCurrentIndex(idx)
         hb1.addWidget(eixolab)
         hb1.addWidget(self.eixocb)
-        
 
         poslab = [QLabel('Seção {}'.format(i+1)) for i in range(nsectot)]
         self.postext = [QLineEdit('') for i in range(nsectot)]
@@ -139,6 +150,8 @@ class Pos1dDialog(QDialog):
 
             try:
                 p = pos.parsenumlst(s)
+                if self.roundpts:
+                    p = [round(x, self.ndigits) for x in p]
                 points.append((i, p, s))
             except:
                 QMessageBox.critical(self, 'Erro interpretando os pontos', "Não foi possível entender o que {} quer dizer".format(s),  QMessageBox.Ok)
@@ -215,7 +228,7 @@ if __name__ == '__main__':
 
     win = Pos1dDialog('x', ['50:200:40'])#, '300:2400:100', '2440:2600:40'])
     ret = win.exec_()
-
+    print(ret)
     if ret:
         axis, pts = win.getpoints()
         print('Eixo: {}'.format(axis))
