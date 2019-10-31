@@ -187,6 +187,7 @@ class PitotBLayerWin(QMainWindow):
         measAct.setShortcut('Ctrl+M')
         measAct.setStatusTip('Realizar o ensaio')
         measAct.triggered.connect(self.menu_measure)
+        measAct.setEnabled(False)
         menumeas.addAction(measAct)
         
         self.menu = dict(new=newAct, save=saveAct, exit=exitAct,
@@ -233,6 +234,7 @@ class PitotBLayerWin(QMainWindow):
                     self.menu['rconn'].setEnabled(False)
                     self.menu['rdisconn'].setEnabled(True)
                     self.menu['robo'].setEnabled(True)
+                    self.all_ready()
                     return
                 else:
                     err = True
@@ -242,6 +244,7 @@ class PitotBLayerWin(QMainWindow):
                                  QMessageBox.Ok)
             self.setEnabled(True)
             self.robo = None
+            self.menu['measure'].setEnabled(False)
         return 
         
     def menu_rdisconn(self):
@@ -253,13 +256,13 @@ class PitotBLayerWin(QMainWindow):
             self.menu['rconn'].setEnabled(True)
             self.menu['rdisconn'].setEnabled(False)
             self.menu['robo'].setEnabled(False)
+            self.menu['measure'].setEnabled(False)
 
     def menu_robo(self):
         if self.robowin is not None:
             self.robowin.robo = self.robo
         else:
             self.robowin = pyqtrobo.RoboWindow(self.robo, 'Camada Limite', None, self)
-
         self.robowin.show()
         
     def menu_pos(self):
@@ -273,14 +276,14 @@ class PitotBLayerWin(QMainWindow):
         ans = dlg.exec_()
         if ans:
             self.pos = dlg.getpoints()
+        self.all_ready()
             
     def menu_scanivalve(self):
         if self.scaniwin is None:
             self.scaniwin = scanigui.ScaniWin(parent=self)
         self.scaniwin.show()
-        #if self.all_ready():
-        #    self.measbutton.setEnabled(True)
-        #print('Configurar scanivalve')
+        self.all_ready()
+        
     def menu_pitot(self):
         if self.pitot is not None:
             dlg = pitotgui.PitotConfig(self.chans, self.pitot, self)
@@ -291,113 +294,25 @@ class PitotBLayerWin(QMainWindow):
 
         if ans:
             self.pitot = dlg.config()
+        self.all_ready()
+        
 
     def menu_measure(self):
         print('MEDIR!!!')
         
     def all_ready(self):
+        x = self.pos is not None
+        r = self.robo is not None
+        s = self.scaniwin is not None and self.scaniwin.connected()
+        p = self.pitot is not None
 
-        if self.pos is not None and self.scaniwin is not None and self.pitotwin is not None:
+        if x and r and s and p:
+            self.menu['measure'].setEnabled(True)
             return True
         else:
+            self.menu['measure'].setEnabled(False)
             return False
         
-    def robo(self):
-        if self.mov is not None:
-            return self.mov
-        else:
-            return None
-    def scanivalve(self):
-        if self.scaniwin is not None:
-            return self.scaniwin.scanivalve()
-        else:
-            return None
-    def points(self):
-        if self.ptswin is not None:
-            return self.ptswin.getpoints()
-        else:
-            return None
-    def pitot(self):
-        if self.pitotwin is not None:
-            return self.pitotwin.config()
-        else:
-            return None
-        
-
-        
-        
-    def conectar_robo(self):
-        ip, port = self.url
-
-        mov = self.roboconnect(ip, port)
-        if mov is not None:
-            self.mov = mov
-        return
-
-    def roboconnect(self, ip, port):
-
-        if self.mov is not None:
-            ans = QMessageBox.information(self, 'Robô já está conectado',
-                                          'Se a conexão estiver boa deseja continuar utilizando-a?',
-                                          QMessageBox.Yes | QMessageBox.No)
-            if ans == QMessageBox.Yes:
-                try:
-                    if self.mov.ping() == 123:
-                        return self.mov
-                    else:
-                        raise RuntimeError("Não conectou")
-                except:
-                    pass
-
-        dlg = RoboIP(ip, port)
-        if dlg.exec_():
-            ntries = 3
-            wait = 3
-            mov = RoboClient()
-            err = False
-            for i in range(ntries):
-                mysleep(wait)
-                print('Tentando conectar...')
-                success = mov.connect(ip, port)
-                if success:
-                    QMessageBox.information(self, 'Conexão com o Robo bem sucedida',
-                                            "Conectado ao servidor XML-RPC do robo em http://{}:{}".format(ip, port), QMessageBox.Ok)
-                    return mov
-                else:
-                    err = True
-            QMessageBox.critical(self, 'Erro conectando ao servidor XML-RPC',
-                                 "Inicie o servidor de XML-RPC do robô ou mude o IP/Porta",
-                                 QMessageBox.Ok)
-        return None
-    
-        
-    def def_points(self):
-        if self.ptswin is None:
-            self.ptswin = pos1d.Pos1dWindow(parent=self)
-
-        if self.all_ready():
-            self.measbutton.setEnabled(True)
-            
-        self.ptswin.show()
-        
-    def scani_config(self):
-        if self.scaniwin is None:
-            self.scaniwin = scanigui.ScaniWin(parent=self)
-
-        if self.all_ready():
-            self.measbutton.setEnabled(True)
-
-        self.scaniwin.show()
-    def pitot_config(self):
-        if self.pitotwin is None:
-            self.pitotwin = pitotgui.PitotWin(self.chans, parent=self)
-
-        if self.all_ready():
-            self.measbutton.setEnabled(True)
-
-        self.pitotwin.show()
-    def measure(self):
-        pass
         
 
 class PitotMeasWin(QMainWindow):
