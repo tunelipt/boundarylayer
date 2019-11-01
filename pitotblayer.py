@@ -388,8 +388,8 @@ class PitotMeasWin(QMainWindow):
 if __name__ == '__main__':
     app = QApplication([])
 
-    #win = PitotBLayerWin()#'192.168.0.101')
-    win = WindTunnelTest([30, 20, 10, 5])
+    win = PitotBLayerWin()#'192.168.0.101')
+    #win = WindTunnelTest([30, 20, 10, 5])
     win.show()
 
     app.exec_()
