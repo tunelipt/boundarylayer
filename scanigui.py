@@ -8,6 +8,8 @@ from PyQt5.QtCore import Qt, QRegExp, QEventLoop, QTimer
 from PyQt5.QtGui import QPixmap, QIcon, QRegExpValidator, QDoubleValidator, QIntValidator, QValidator
 
 import scanivalve
+import channels
+
 import time
 
 def mysleep(ns):
@@ -437,10 +439,11 @@ class ScaniConfig(QWidget):
         return False
     def scanivalve(self):
         return self.scani
-    def scanivalve_config(self):
+    def save_config(self):
         if self.connected:
-            return dict(kind='scanivalve', model=self.model, ip=self.scani.ip, FPS=self.scani.FPS,
-                        PERIOD=self.scani.PERIOD, AVG=self.scani.AVG)
+            return dict(kind='daq', var='pressure',
+                        device=dict(name='scanivalve', model=self.model, ip=self.scani.ip),
+                        config=dict(FPS=self.scani.FPS, PERIOD=self.scani.PERIOD, AVG=self.scani.AVG))
         return None
     
         
@@ -464,6 +467,8 @@ class ScaniWin(QMainWindow):
         
         self.setWindowTitle("Controle do Scanivalve")
         self.widget.setLayout(vb)
+        self.chans = channels.ChannelConfig(16)
+        
         quit = QAction("Fechar", self)
         quit.triggered.connect(self.sair)        
     def sair(self):
@@ -472,8 +477,11 @@ class ScaniWin(QMainWindow):
         pass
     def scanivalve(self):
         return self.scani.scanivalve()
-    def scanivalve_config(self):
-        return self.scani.scanivalve_config()
+    def save_config(self):
+        return self.scani.save_config()
+    def channels(self):
+        return ['Chan {}'.format(i) for i in range(16)]
+    
     def connected(self):
         return self.scani.connected
     
@@ -496,3 +504,4 @@ if __name__ == '__main__':
     #win2.show()
     #app.exec_()
     
+ 

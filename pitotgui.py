@@ -10,6 +10,7 @@ from PyQt5.QtGui import QPixmap, QIcon, QRegExpValidator, QDoubleValidator, QInt
 import time
 
 
+import channels
 
 
 import numpy as np
@@ -30,42 +31,11 @@ class Pitot(object):
         return self.cd * np.sqrt(2*dp/rho)
 
 
-class ChannelConfig(object):
-
-    def __init__(self, chans):
-
-        
-        self.nch = len(chans)
-        
-        self.chans = [ch for ch in chans]
-        self.selected = [False for i in range(self.nch)]
-
-    def available(self, chidx):
-        return not self.selected[chidx]
-    
-    def check(self, chidx):
-        self.selected[chidx] = True
-
-    def uncheck(self, chidx):
-        self.selected[chidx] = False
-
-    def findfirst(self):
-        for i in range(self.nch):
-            if not self.selected[i]:
-                self.selected[i] = True
-                return i
-        return -1
-    
-    def names(self):
-
-        return self.chans
-    def nchans(self):
-        return self.nch
     
 
 class PitotWidget(QWidget):
 
-    def __init__(self, lab, chans, Cd=0.997, chtot=15, chest=16, use=True, parent=None):
+    def __init__(self, lab, chans, Cd=0.997, chtot=14, chest=15, use=True, parent=None):
         super(PitotWidget, self).__init__(parent)
         self.lab = lab
         self.Cd = Cd
@@ -99,20 +69,25 @@ class PitotWidget(QWidget):
 
         itlab = QLabel("Canal da pressão total")
         self.ittext = QComboBox()
-        for ii in self.chans.names():
+        chan_names = ['REF']
+        for i in range(self.chans.nchans()):
+            chan_names.append(self.chans.names()[i])
+        
+        for ii in chan_names:
             self.ittext.addItem(ii)
         self.ittext.setToolTip("Canal da tomada de pressão total do tubo de Pitot")
-        self.ittext.setCurrentIndex(self.itot)
+        self.ittext.setCurrentIndex(self.itot+1)
         
         hb2.addWidget(itlab)
         hb2.addWidget(self.ittext)
 
         ielab = QLabel("Canal da pressão estática")
         self.ietext = QComboBox()
-        for ii in self.chans.names():
+        for ii in chan_names:
             self.ietext.addItem(ii)
         self.ietext.setToolTip("Canal da tomada de pressão estática do tubo de Pitot")
-        self.ietext.setCurrentIndex(self.iest)
+        self.ietext.setCurrentIndex(self.iest+1)
+
 
         self.chans.check(self.itot)
         self.chans.check(self.iest)
@@ -163,29 +138,29 @@ class PitotWidget(QWidget):
             return
 
         if i1 != self.itot:
-            self.chans.uncheck(self.itot)
+            self.chans.uncheck(self.itot-1)
             self.itot = i1
-            if not self.chans.available(i1):
+            if not self.chans.available(i1-1):
                 QMessageBox.warning(self, 'Canal já usado',
                                     "Faz sentido? Usando o canal {} como pressão total".format(self.chans.names()[i1]), QMessageBox.Ok)
             self.chans.check(i1)
             
                 
         if i2 != self.iest:
-            self.chans.uncheck(self.iest)
+            self.chans.uncheck(self.iest-1)
             self.iest = i2
-            if not self.chans.available(i2):
+            if not self.chans.available(i2-1):
                 QMessageBox.warning(self, 'Canal já usado',
                                     "Faz sentido? Usando o canal {} como pressão estática".format(self.chans.names()[i2]), QMessageBox.Ok)
             self.chans.check(i2)
         return
     
-    def pitot(self):
+    def save_config(self):
         Cd = self.getcd()
         itot = self.getitot()
         iest = self.getiest()
         chk = self.checked()
-        return dict(kind='pitot', use=chk, Cd=Cd, chan=(itot, iest))
+        return dict(kind='instrument', name='pitot', use=chk, Cd=Cd, chan=(itot, iest))
     
         
     def getcd(self):
@@ -197,7 +172,7 @@ class PitotWidget(QWidget):
         
         
 
-        
+
 class ChannelConnect(QWidget):
 
     def __init__(self, s, chans, idx, chk=True, parent=None):
@@ -212,9 +187,13 @@ class ChannelConnect(QWidget):
         self.chbx.setChecked(chk)
         
         self.lst = QComboBox()
-        for ii in self.chans.names():
+        chan_names = ['REF']
+        for i in self.chans.names():
+            chan_names.append(i)
+        
+        for ii in chan_names:
             self.lst.addItem(ii)
-        self.lst.setCurrentIndex(idx)
+        self.lst.setCurrentIndex(idx+1)
         hb.addWidget(self.chbx)
         hb.addWidget(self.lst)
 
@@ -226,16 +205,20 @@ class ChannelConnect(QWidget):
         self.setLayout(hb)
 
     def selectionchange(self):
-        i = self.lst.currentIndex()
-
+        i = self.lst.currentIndex()-1
+        print('PORRA {}'.format(i))
         if i != self.idx:
             self.chans.uncheck(self.idx)
             self.idx = i
-            if not self.chans.available(i):
+            
+            if i >= 0 and not self.chans.available(i):
                 QMessageBox.warning(self, 'Canal já usado',
                                     "Faz sentido? Usando o canal {} como pressão total".format(self.chans.names()[i]), QMessageBox.Ok)
-            self.chans.check(i)
-
+                self.chans.check(i)
+            else:
+                QMessageBox.warning(self, 'Sem canal definido',
+                                    "Faz sentido não especificar canal?", QMessageBox.Ok)
+                
         return
     def clickcheck(self, state):
 
@@ -249,7 +232,8 @@ class ChannelConnect(QWidget):
     def checked(self):
         return self.chbx.isChecked()
     def index(self):
-        return self.lst.currentIndex()
+        return self.lst.currentIndex()-1
+        
     
 class PitotConfig(QDialog):
 
@@ -262,8 +246,8 @@ class PitotConfig(QDialog):
         
         if config is None:
             config = {}
-            config['pitot'] = dict(kind='pitot', use=True, Cd=0.997, chan=(15,16))
-            config['pitotref'] = dict(kind='pitot', use=True, Cd=0.997, chan=(13,14))
+            config['pitot'] = dict(kind='pitot', use=True, Cd=0.997, chan=(14,15))
+            config['pitotref'] = dict(kind='pitot', use=True, Cd=0.997, chan=(12,13))
             config['mesa'] = dict(kind='presstap', use=True, chan=11)
             config['porta'] = dict(kind='presstap', use=True, chan=12)
             config['patm'] = dict(kind='presstap', use=True, chan=1)
@@ -289,17 +273,17 @@ class PitotConfig(QDialog):
 
         grp = QGroupBox("Outras medidas")
         vb2 = QVBoxLayout()
-        self.anel_mesa = ChannelConnect("Anel da Mesa", chans, 10)
+        self.anel_mesa = ChannelConnect("Anel da Mesa", chans, 9)
         self.anel_mesa.setToolTip("Anel piezométrico na mesa do túnel")
         
-        self.anel_porta = ChannelConnect("Anel da Porta", chans, 11)
+        self.anel_porta = ChannelConnect("Anel da Porta", chans, 10)
         self.anel_porta.setToolTip("Anel piezométrico na porta do túnel")
 
         #self.anel_contracin = ChannelConnect("Entrada da contração", chans, 9, False)
         #self.anel_porta.setToolTip("Anel piezométrico na porta do túnel")
 
         #self.anel_contracout = ChannelConnect("Saída da  contração", chans, 8, False)
-        self.patm = ChannelConnect("Pressão atmosférica", chans, 1, True)
+        self.patm = ChannelConnect("Pressão atmosférica", chans, 0, True)
         self.patm.setToolTip("Tomada de pressão aberta para a atmosfera")
                 
         vb2.addWidget(self.anel_mesa)
@@ -340,9 +324,9 @@ class PitotConfig(QDialog):
     def pitotref(self):
         return self.pitotwref.pitot()
 
-    def config(self):
-        pitot = self.pitotw.pitot()
-        pitotref = self.pitotwref.pitot()
+    def save_config(self):
+        pitot = self.pitotw.save_config()
+        pitotref = self.pitotwref.save_config()
         amesa = dict(kind='presstap', use=self.anel_mesa.checked(), chan=self.anel_mesa.index())
         aporta = dict(kind='presstap', use=self.anel_porta.checked(), chan=self.anel_porta.index())
         patm = dict(kind='presstap', use=self.patm.checked(), chan=self.patm.index())
@@ -354,27 +338,15 @@ class PitotConfig(QDialog):
 if __name__ == '__main__':
     app = QApplication([])
 
-    chans = ["Canal {}".format(i) for i in range(17)]
-    chans[0] = "REF"
-    
-    win = PitotConfig(ChannelConfig(chans))
+    chans = channels.ChannelConfig(16)
+    win = PitotConfig(chans)
     
     
     #win.show()
 
     #sys.exit(app.exec_())
     ret = win.exec_()
-
-    if ret:
-        config = win.config()
-        print(config)
-        win2 = PitotConfig(ChannelConfig(chans), config)
-        win2.exec_()
-        print('=====================')
-        print(win2.config())
-        
-    else:
-        print("NADA")
-        
-    
+    print(chans.chans)
+    print(chans.selected)
+    print(win.save_config())
         

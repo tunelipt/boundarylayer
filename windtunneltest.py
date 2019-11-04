@@ -2,8 +2,9 @@
 
 class AbstractWindTunnelTest(object):
 
-    def __init__(self, ptslst, daqfun, calcfun):
-        pass
+    def __init__(self, , daqfun, calcfun=None):
+        self.calcfun = calcfun
+        self.ptslst 
 
     def daq_start(self):
 
@@ -12,7 +13,10 @@ class AbstractWindTunnelTest(object):
         return
     def daq_read(self):
 
-        
+        return daqfun.read()
+    def daq_time(self):
+        ttotal = daqfun.read()
     
-
+    def iterator(self, istart=0):
+        
         
