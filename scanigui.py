@@ -497,7 +497,7 @@ if __name__ == '__main__':
     #sys.exit(app.exec_())
     app.exec_()
 
-    conf = win.scanivalve_config()
+    conf = win.save_config()
     print(conf)
     #win.scanivalve().close()
     #win2 = ScaniWin(initconfig=conf)#'192.168.0.101')

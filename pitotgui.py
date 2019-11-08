@@ -210,7 +210,7 @@ class ChannelConnect(QWidget):
         if i != self.idx:
             self.chans.uncheck(self.idx)
             self.idx = i
-            
+            print("CHEGOU AQUI")
             if i >= 0 and not self.chans.available(i):
                 QMessageBox.warning(self, 'Canal já usado',
                                     "Faz sentido? Usando o canal {} como pressão total".format(self.chans.names()[i]), QMessageBox.Ok)
