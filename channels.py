@@ -1,16 +1,29 @@
+import math
+
+def num_string(x, n=3):
+    return ('{}'.format(x + 10**n))[1:]
 
 class ChannelConfig(object):
 
-    def __init__(self, nchans, chans=None, istart=1):
+    def __init__(self, nchans, chans=None, addref=True, istart=0):
+
+        self.addref = addref
+        self.istart = istart
+        
         if chans is None:
-            self.chans = ["Chan {}".format(i + istart) for i in range(nchans)]
+            nchars = math.ceil(math.log10(nchans+istart))
+            self.chans = ["CHAN{}".format(num_string(i+istart, nchars)) for i in range(nchans)]
         else:
             self.chans = [chans[i] for i in range(nchans)]
 
-        self.nch = nchans
-        self.selected = [False for i in range(self.nch)]
+        if addref:
+            self.chans.append("REF")
 
-    def available(self, chidx):
+        self.nconn = len(self.chans)
+        self.nch = nchans
+        self.selected = [False for i in range(self.nconn)]
+
+    def isavailable(self, chidx):
         return not self.selected[chidx]
     
     def check(self, chidx):

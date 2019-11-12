@@ -31,7 +31,23 @@ class Pitot(object):
         return self.cd * np.sqrt(2*dp/rho)
 
 
-    
+def check_chan(chans, iold, inew, win=None):
+    change = False
+    if chans.isavailable(inew):
+        change = True
+    else:
+        ans = QMessageBox.warning(win, 'Canal já usado',
+                                  "Tem certeza que quer usar o {}?".format(chans.names()[inew]),
+                                  QMessageBox.Yes | QMessageBox.No)
+        
+        if ans == QMessageBox.Yes:
+            change = True
+
+    if change:
+        chans.uncheck(iold)
+        chans.check(inew)
+    return change
+
 
 class PitotWidget(QWidget):
 
@@ -69,24 +85,24 @@ class PitotWidget(QWidget):
 
         itlab = QLabel("Canal da pressão total")
         self.ittext = QComboBox()
-        chan_names = ['REF']
-        for i in range(self.chans.nchans()):
-            chan_names.append(self.chans.names()[i])
+        #chan_names = ['REF']
+        #for i in self.chans.names(): range(self.chans.nchans()):
+        #    chan_names.append(i)
         
-        for ii in chan_names:
+        for ii in self.chans.names(): #chan_names:
             self.ittext.addItem(ii)
         self.ittext.setToolTip("Canal da tomada de pressão total do tubo de Pitot")
-        self.ittext.setCurrentIndex(self.itot+1)
+        self.ittext.setCurrentIndex(self.itot)
         
         hb2.addWidget(itlab)
         hb2.addWidget(self.ittext)
 
         ielab = QLabel("Canal da pressão estática")
         self.ietext = QComboBox()
-        for ii in chan_names:
+        for ii in self.chans.names(): #chan_names:
             self.ietext.addItem(ii)
         self.ietext.setToolTip("Canal da tomada de pressão estática do tubo de Pitot")
-        self.ietext.setCurrentIndex(self.iest+1)
+        self.ietext.setCurrentIndex(self.iest)
 
 
         self.chans.check(self.itot)
@@ -138,21 +154,18 @@ class PitotWidget(QWidget):
             return
 
         if i1 != self.itot:
-            self.chans.uncheck(self.itot-1)
-            self.itot = i1
-            if not self.chans.available(i1-1):
-                QMessageBox.warning(self, 'Canal já usado',
-                                    "Faz sentido? Usando o canal {} como pressão total".format(self.chans.names()[i1]), QMessageBox.Ok)
-            self.chans.check(i1)
-            
+            ans = check_chan(self.chans, self.itot, i1, self)
+            if not ans:
+                self.ittext.setCurrentIndex(self.itot)
+            else:
+                self.itot = i1
                 
         if i2 != self.iest:
-            self.chans.uncheck(self.iest-1)
-            self.iest = i2
-            if not self.chans.available(i2-1):
-                QMessageBox.warning(self, 'Canal já usado',
-                                    "Faz sentido? Usando o canal {} como pressão estática".format(self.chans.names()[i2]), QMessageBox.Ok)
-            self.chans.check(i2)
+            check_chan(self.chans, self.iest, i2, self)
+            if not ans:
+                self.ietext.setCurrentIndex(self.iest)
+            else:
+                self.itot = i1
         return
     
     def save_config(self):
@@ -187,13 +200,13 @@ class ChannelConnect(QWidget):
         self.chbx.setChecked(chk)
         
         self.lst = QComboBox()
-        chan_names = ['REF']
-        for i in self.chans.names():
-            chan_names.append(i)
+        #chan_names = ['REF']
+        #for i in self.chans.names():
+        #    chan_names.append(i)
         
-        for ii in chan_names:
+        for ii in self.chans.names():#chan_names:
             self.lst.addItem(ii)
-        self.lst.setCurrentIndex(idx+1)
+        self.lst.setCurrentIndex(idx)
         hb.addWidget(self.chbx)
         hb.addWidget(self.lst)
 
@@ -203,36 +216,35 @@ class ChannelConnect(QWidget):
         self.chbx.stateChanged.connect(self.clickcheck)
         self.lst.setEnabled(chk)
         self.setLayout(hb)
+        if chk:
+            self.chans.check(idx)
+            
 
     def selectionchange(self):
-        i = self.lst.currentIndex()-1
-        print('PORRA {}'.format(i))
+        i = self.lst.currentIndex()
         if i != self.idx:
-            self.chans.uncheck(self.idx)
-            self.idx = i
-            print("CHEGOU AQUI")
-            if i >= 0 and not self.chans.available(i):
-                QMessageBox.warning(self, 'Canal já usado',
-                                    "Faz sentido? Usando o canal {} como pressão total".format(self.chans.names()[i]), QMessageBox.Ok)
-                self.chans.check(i)
+            ans = check_chan(self.chans, self.idx, i, self)
+            if not ans:
+                self.lst.setCurrentIndex(self.idx)
             else:
-                QMessageBox.warning(self, 'Sem canal definido',
-                                    "Faz sentido não especificar canal?", QMessageBox.Ok)
-                
+                self.idx = i
         return
+    
     def clickcheck(self, state):
-
         chk = self.chbx.isChecked()
         
         if chk:
             self.lst.setEnabled(True)
+            i = self.lst.currentIndex()
+            ans = check_chan(self.chans, self.idx, i, self)
         else:
+            self.chans.uncheck(self.idx)
             self.lst.setEnabled(False)
 
     def checked(self):
         return self.chbx.isChecked()
     def index(self):
-        return self.lst.currentIndex()-1
+        return self.lst.currentIndex()
         
     
 class PitotConfig(QDialog):
@@ -248,9 +260,9 @@ class PitotConfig(QDialog):
             config = {}
             config['pitot'] = dict(kind='pitot', use=True, Cd=0.997, chan=(14,15))
             config['pitotref'] = dict(kind='pitot', use=True, Cd=0.997, chan=(12,13))
-            config['mesa'] = dict(kind='presstap', use=True, chan=11)
-            config['porta'] = dict(kind='presstap', use=True, chan=12)
-            config['patm'] = dict(kind='presstap', use=True, chan=1)
+            config['mesa'] = dict(kind='presstap', use=True, chan=10)
+            config['porta'] = dict(kind='presstap', use=True, chan=11)
+            config['patm'] = dict(kind='presstap', use=True, chan=0)
         
         self.setup_ui(config, chans)
         
@@ -338,7 +350,7 @@ class PitotConfig(QDialog):
 if __name__ == '__main__':
     app = QApplication([])
 
-    chans = channels.ChannelConfig(16)
+    chans = channels.ChannelConfig(16, addref=True, istart=1)
     win = PitotConfig(chans)
     
     

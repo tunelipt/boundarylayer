@@ -22,7 +22,6 @@ import wrobolib.roboclient as roboclient
 from wrobolib import pyqtrobo
 
 
-
 def mysleep(ns):
     loop = QEventLoop()
     QTimer.singleShot(ns*1000, loop.quit)
@@ -34,6 +33,8 @@ from wrobolib.roboclient import RoboClient
 
 import scanigui
 import pitotgui
+import channels
+
 
 
 class RoboIP(QDialog):
@@ -115,7 +116,6 @@ class WindTunnelTest(QWidget):
         self.radio[self.active_section].setChecked(True)
         for i in range(nsecs):
             t = self.text[i]
-            print(ptslst[i])
             for s in range(ptslst[i]):
                 t.addItem('Ponto {}'.format(s+1))
 
@@ -158,9 +158,7 @@ class PitotBLayerWin(QMainWindow):
         
 
         
-        chans = ["Canal {}".format(i) for i in range(17)]
-        chans[0] = "REF"
-        self.chans = pitotgui.ChannelConfig(chans)
+        self.chans = channels.ChannelConfig(16, addref=True, istart=1)
         
         self.setup_ui()
 
@@ -352,7 +350,7 @@ class PitotBLayerWin(QMainWindow):
         ans = dlg.exec_()
 
         if ans:
-            self.pitot = dlg.config()
+            self.pitot = dlg.save_config()
         self.all_ready()
         
 
